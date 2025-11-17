@@ -58,39 +58,39 @@ func TestTaskQueueSubmit(t *testing.T) {
 			Timeout: 30 * time.Second,
 		},
 	}
-	
+
 	storage := NewMockStorage()
 	grpcClient := &MockGRPCClient{}
-	
+
 	queue := NewTaskQueue(cfg, storage, grpcClient)
 	defer queue.Shutdown()
-	
+
 	// Submit a task
 	taskID, err := queue.SubmitTask("test_task", map[string]interface{}{
 		"key": "value",
 	})
-	
+
 	if err != nil {
 		t.Fatalf("Failed to submit task: %v", err)
 	}
-	
+
 	if taskID == "" {
 		t.Error("Expected non-empty task ID")
 	}
-	
+
 	// Wait for task to be processed
 	time.Sleep(100 * time.Millisecond)
-	
+
 	// Get task
 	task, err := queue.GetTask(taskID)
 	if err != nil {
 		t.Fatalf("Failed to get task: %v", err)
 	}
-	
+
 	if task == nil {
 		t.Fatal("Expected task to exist")
 	}
-	
+
 	if task.Status != TaskStatusCompleted && task.Status != TaskStatusProcessing {
 		t.Errorf("Expected task to be completed or processing, got %s", task.Status)
 	}
@@ -105,26 +105,26 @@ func TestTaskStatus(t *testing.T) {
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
-	
+
 	if task.Status != TaskStatusPending {
 		t.Errorf("Expected status pending, got %s", task.Status)
 	}
-	
+
 	// Test marshal/unmarshal
 	data, err := MarshalTask(task)
 	if err != nil {
 		t.Fatalf("Failed to marshal task: %v", err)
 	}
-	
+
 	unmarshaled, err := UnmarshalTask(data)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal task: %v", err)
 	}
-	
+
 	if unmarshaled.ID != task.ID {
 		t.Errorf("Expected ID %s, got %s", task.ID, unmarshaled.ID)
 	}
-	
+
 	if unmarshaled.Status != task.Status {
 		t.Errorf("Expected status %s, got %s", task.Status, unmarshaled.Status)
 	}
