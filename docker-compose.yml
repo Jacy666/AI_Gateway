@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # Redis service for task storage
+  redis:
+    image: redis:7-alpine
+    container_name: ai-gateway-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - ai-gateway-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # AI Gateway service
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_PORT=8080
+      - GIN_MODE=release
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - REDIS_DB=0
+      - JWT_SECRET=your-secret-key-change-in-production
+      - JWT_EXPIRE_HOURS=24
+      - GRPC_MODEL_SERVICE=model-service:50051
+      - GRPC_TIMEOUT_SECONDS=60
+      - RATE_LIMIT_RPS=100
+      - RATE_LIMIT_BURST=200
+      - NUM_WORKERS=10
+      - TASK_BUFFER_SIZE=1000
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - ai-gateway-network
+    restart: unless-stopped
+
+  # Mock Python Model Service (for demonstration)
+  # In production, replace this with your actual Python/AI model service
+  model-service:
+    image: python:3.11-slim
+    container_name: ai-model-service
+    ports:
+      - "50051:50051"
+    networks:
+      - ai-gateway-network
+    command: >
+      sh -c "pip install grpcio grpcio-tools && 
+             echo 'Mock gRPC service running on port 50051' && 
+             tail -f /dev/null"
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+
+networks:
+  ai-gateway-network:
+    driver: bridge
